@@ -1,0 +1,495 @@
+---
+title: "R for Economists Term Paper"
+author: "Fistname_Lastname"
+output: word_document
+date: "2024-01-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = T,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+#Introduction
+
+This research investigates the identification of key factors that influence 
+logarithmic wages, employing statistical methods within the R programming language.
+The analysis involves a dataset encompassing variables related to income, 
+demographic information and geographic location; it aims to unveil an 
+intricate web of these factors' influences on wage outcomes.
+
+Studies in this domain have underscored the significance of variables
+such as workforce experience (exper) and educational attainment (educ)
+in shaping earnings trajectories. The analysis will encompass a
+comprehensive examination of these factors alongside auxiliary variables
+like union membership (union), racial identification (black), physical
+appearance indicators (belavg, abvavg), and regional categorizations
+(bigcity, south).
+
+While considering the combined impact on both genders, a specific
+exploration will also dissect gender-specific wage determinants,
+recognizing the potential differences in how these variables influence
+earnings for women and men.
+
+Referencing existing literature, relevant studies point to the
+importance of experience and education as primary determinants of
+earnings. Several authors, including [@alsulami2018effect],
+[@caglayan2022effects], and [@dickson2013causal], have delved into
+similar themes, highlighting the multifaceted nature of wage
+determinants.
+
+The subsequent sections of this paper will delve into a thorough
+analysis of the data, including a summary of notable features,
+regression models exploring the relationships between variables,
+advanced techniques such as splines or classification trees, and a
+conclusive discussion elucidating key findings and implications.
+
+This study aims to demonstrate proficiency in employing various R
+techniques, emphasizing the robustness of statistical analysis in
+elucidating factors influencing log wages within diverse
+socio-demographic contexts.
+
+
+```{r}
+library(tidyverse)
+library(modelsummary)
+library(patchwork)
+library(mgcv)
+library(party)
+library(ggfortify)
+library(GGally)
+library(bookdown)
+beauty <- read.csv("C:/Users/Baha/Downloads/beauty.csv")
+head(beauty)
+```
+
+#Data Summary
+
+The analysis focuses on a subset of variables crucial for understanding
+wage determinants. When variables are 0,1 they are referred to as dummy
+variables.Below is an overview of these variables:
+
+```{r}
+summary(beauty)
+str(beauty)
+library(flextable)
+datasummary_skim(beauty,title="Data Summary")
+```
+
+From the data summary table above, the minimum wage for an employee is 1.0, the maximum wage is 41.7 and the median wage is 5.0, implying that most of the employees earn an approximate wage of 5.0. The years of schooling (educ) variable has a minimum value of 5 years, a maximum value of 17 years and the median value of 12 years. The years of experience has a minimum value of zero, a maximum value of 48 years and a median value of 15 years. From the statistics of of the experience, education and wages, it can be concluded that they influence each other positively. As the employee with many years of schooling, has got a lot of experience in terms of the years, and hence earns a high wage.
+
+# Overview of selected variables
+
+wage: Represents hourly wage.
+
+exper: Denotes the number of years of workforce experience.
+
+educ: Signifies the years of schooling attained.
+
+union: Indicates if the individual is a union member.
+
+black: Indicates if the individual is black. sex: Categorical variable
+denoting the gender of the individual.
+
+F: stands for female.
+
+M: stands for male.
+
+belavg: Indicates if the individual is perceived to look below average.
+
+abvavg: Indicates if the individual is perceived to look above average.
+
+bigcity: Indicates if the individual lives in a big city.
+
+south: Indicates if the individual lives in a southern state.
+
+The summary table encapsulates key statistical measures such as
+mean,median, minimum, maximum, and quartiles, offering an initial
+glimpse into the central tendencies and variability within these
+variables.
+
+Table @ref(tab:Summary) provides a comprehensive summary of the selected
+variables.
+
+```{r}
+ggpairs(beauty, title = "Scatterplot Matrix", upper = list(continuous = "points")) +
+  theme_minimal() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue")
+```
+
+From the scatter plot matrix above, the variables wages and experience have almost similar distribution. It can be deduced that there is no collinearity among the variables, hence the variables are independent of each other. The independent variables such as exper and educ are linearly related to the dependent variable, wages. Observing the scatter plots between 'wage,', 'exper,' and 'educ,' we can anticipate relationships that might
+influence wage outcomes. This initial exploration guides us in formulating regression models and assessing the impact of these variables on log wages.
+
+
+```{r}
+library(ggplot2)
+beauty <- beauty %>%
+  mutate(sex = factor(sex))
+# Scatter plot for both men and women
+ggplot(data = beauty, aes(x = educ, y = exper, color = sex)) +
+  geom_point(aes(size = wage)) +  # Use size to represent wage
+  labs(
+    x = "Years of Schooling",
+    y = "Years of Experience",
+    title = "Relationship between Education, Experience, and Wage by Gender",
+    subtitle = "Size of points represents wage"
+  ) +
+  scale_color_manual(values = c("blue", "red"))
+```
+
+From the plot above, it can be seen that years of schooling determines years of experience, which determines the amount of wage an employee receives. This is supported by the small sized points for the lowest years of schooling and thus few years of experience, which leads to small amount of wages for employees in this category. Also, an employee with many years of schooling implies that they have many years of experience, and thus they receive a huge amount in terms of wages.
+
+```{r}
+# Scatter plot for women separately
+beauty |>
+  filter(sex == 0) |>
+ggplot(aes(x = educ, y = exper)) +
+  geom_point(aes(size = wage)) +  # Use size to represent wage
+  labs(
+    x = "Years of Schooling",
+    y = "Years of Experience",
+    title = "Relationship between Education, Experience, and Wage by Female",
+    subtitle = "Size of points represents wage"
+  )
+```
+
+```{r}
+# Scatter plot for men separately
+beauty |>
+  filter(sex == 1) |>
+ggplot(aes(x = educ, y = exper)) +
+  geom_point(aes(size = wage)) +  # Use size to represent wage
+  labs(
+    x = "Years of Schooling",
+    y = "Years of Experience",
+    title = "Relationship between Education, Experience, and Wage by Male",
+    subtitle = "Size of points represents wage"
+  )
+```
+
+
+
+```{r}
+# Histogram for 'educ' variable in 'beauty' data set
+ggplot(data = beauty, aes(x = educ)) +
+  geom_histogram() +
+  theme_bw(base_size = 10) +
+  labs(
+    x = "educ",
+    y = "Frequency",
+    title = "Histogram of Education (educ) Variable"
+  )
+```
+
+The histogram shows that majority of employees have years of schooling between 11 and 13 years. Which actually supports the median value of the 'educ' variable.
+
+```{r}
+# Box plot for 'wage' variable by 'sex' in 'beauty' data set
+ggplot(data = beauty, aes(x = sex, y = wage)) +
+  geom_boxplot() +
+  theme_bw(base_size = 10) +
+  labs(
+    x = "Sex",
+    y = "Wage",
+    title = "Boxplot of Wage by Sex"
+  )
+```
+
+The box plot indicates that males by average receive higher wages that women, and they constitute majority of the employees in the working class industry.
+
+#Men and Women together
+
+```{r}
+beauty %>%
+  ggplot(aes(x = exper, y = log(wage), color = sex)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Years of Experience",
+    y = "Log Hourly Wage",
+    title = "Log Wages vs Experience (Men and Women)")
+```
+
+The plot shows that Males constitute the most population in the working industry, and are the most highly earning gender as depicted by the graph. Most of the women in the working industry earn the same wage, with just a few of them earning the wage similar to their male counterparts.
+
+```{r}
+# Men only
+beauty %>%
+  filter(sex == 1) %>%
+  ggplot(aes(x = exper, y = log(wage))) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Years of Experience",
+    y = "Log Hourly Wage",
+    title = "Log Wages vs Experience (Men Only)"
+  )
+```
+
+
+```{r}
+# Women only
+beauty %>%
+  filter(sex == 0) %>%
+  ggplot(aes(x = exper, y = log(wage))) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Years of Experience",
+    y = "Log Hourly Wage",
+    title = "Log Wages vs Experience (Women Only)")
+```
+
+
+```{r}
+#Men and Women together
+beauty %>%
+  ggplot(aes(x = educ, y = log(wage), color = sex)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Years of Education",
+    y = "Log Hourly Wage",
+    title = "Log Wages vs Education (Men and Women)"
+  )
+```
+
+
+```{r}
+beauty %>%
+  filter(sex == 1) %>%
+  ggplot(aes(x = educ, y = log(wage))) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Years of Education",
+    y = "Log Hourly Wage",
+    title = "Log Wages vs Education (Men Only)")
+```
+
+
+```{r}
+#Women only
+beauty %>%
+  filter(sex == 0) %>%
+  ggplot(aes(x = educ, y = log(wage))) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = "Years of Education",
+    y = "Log Hourly Wage",
+    title = "Log Wages vs Education (Women Only)")
+```
+
+We can see in the Figures above that wages increase with increase in years of schooling and years of experience.
+
+```{r}
+g1 <- ggplot(beauty, aes(x = wage, y = exper)) +
+  geom_point(size = 0.5) +
+  geom_smooth(se = FALSE) +
+  theme_bw() +
+  scale_y_log10() +
+  scale_x_log10()
+
+g2 <- ggplot(beauty, aes(x = wage, y = educ)) +
+  geom_point(size = 0.5) +
+  geom_smooth() +
+  theme_bw() +
+  scale_y_log10()
+
+library(patchwork)
+combined_plots <- (g1 + g2) / (g2 + g2)
+
+combined_plots
+```
+
+
+```{r}
+##Distribution of Wage
+beauty |>
+ggplot(aes(x = wage)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Wage",
+       x = "Wage",
+       y = "Frequency") +
+  theme_bw()
+
+```
+
+```{r}
+##Distribution of years of experience
+beauty |>
+ggplot(aes(x = exper)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of years of experience",
+       x = "Experience",
+       y = "Frequency") +
+  theme_bw()
+```
+
+```{r}
+##Distribution of years of education
+beauty |>
+ggplot(aes(x = educ)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of years of education",
+       x = "Education",
+       y = "Frequency") +
+  theme_bw()
+```
+
+
+Leaving a variable in or out of a regression model affects the model's
+explanatory power, interpretation of coefficients, and predictive
+accuracy. Including more relevant variables can improve the model's fit,
+but it might also lead to over fitting if unnecessary variables are
+added. Conversely, omitting important variables might result in an
+incomplete model that fails to capture crucial relationships in the
+data.
+
+#Regressions
+
+```{r}
+lm_model1 = lm(log(wage) ~ exper + educ + sex, data = beauty)
+summary(lm_model1)
+
+lm_model2 = lm(log(wage) ~ exper + educ + sex + union, data = beauty)
+summary(lm_model2)
+
+lm_model3 = lm(log(wage) ~ exper + educ + sex + union + black, data = beauty)
+summary(lm_model3)
+
+lm_model4 = lm(log(wage) ~ exper + educ + sex + union + black + belavg, data = beauty)
+summary(lm_model4)
+
+lm_model5 = lm(log(wage) ~ exper + educ + sex + union + black + belavg + abvavg, data = beauty)
+summary(lm_model5)
+
+lm_model6 = lm(log(wage) ~ exper + educ + sex + union + black + belavg + abvavg + bigcity, data = beauty)
+summary(lm_model6)
+
+lm_model7 = lm(log(wage) ~ exper + educ + sex + union + black + belavg + abvavg + bigcity + goodhlth, data = beauty)
+summary(lm_model7)
+
+lm_model8 = lm(log(wage) ~ exper + educ + sex + union + black + belavg + abvavg + bigcity + goodhlth + south, data = beauty)
+summary(lm_model8)
+```
+
+The overall model is represented as follows:
+
+log(wage)=0.165+0.013(exper)+0.066(educ)+0.440(sex)+0.170(union)−0.149(black)−0.143(belavg)−0.005(abvavg)+0.172(bigcity)+0.072(goodhlth)+0.065(south)+ϵ
+
+All variables, except for abvavg and goodhlth, have coefficients with statistically significant p-values (p<0.05). goodhlth has a p-value larger than 0.05, indicating that it may not be statistically significant in predicting hourly wage.
+
+```{r}
+dataset_subset = beauty %>%
+  select(wage, exper, educ, union, black, sex, belavg, abvavg, bigcity, south)
+
+
+datasummary_skim(dataset_subset)
+datasummary_correlation(dataset_subset)
+
+
+lm_all <- lm(wage ~ exper + educ + union + black + sex + belavg + abvavg + bigcity + south, data = dataset_subset)
+modelsummary(list(lm_all))
+modelplot(list(lm_all), coef_omit = 'Interc')
+
+lm_women <- lm(wage ~ exper + educ + union + black + belavg + abvavg + bigcity + south, data = filter(dataset_subset, sex == 0))
+lm_men <- lm(wage ~ exper + educ + union + black + belavg + abvavg + bigcity + south, data = filter(dataset_subset, sex == 1))
+
+modelsummary(list(lm_women, lm_men))
+modelplot(list(lm_women, lm_men), coef_omit = 'Interc')
+
+```
+
+
+
+```{r}
+lm_model = lm(wage ~ exper + educ + union + black + sex + belavg + abvavg + bigcity + south, data = beauty)
+modelsummary(lm_model)
+```
+
+
+```{r}
+men_data = subset(beauty, sex == 1)
+men_model = lm(wage ~ exper + educ, data = men_data)
+summary(men_model)
+```
+
+
+```{r}
+women_data = subset(beauty, sex == 0)
+women_model = lm(wage ~ exper + educ, data = women_data)
+summary(women_model)
+```
+
+
+```{r}
+all_model <- lm(wage ~ exper + educ + sex, data = beauty)
+summary(all_model)
+```
+
+
+Based on the regression results, both experience and education have
+statistically significant positive effects on log wages. For each
+additional year of experience or education, log wages increase by
+approximately 0.087 and 0.452 units, respectively. Additionally, being
+male is associated with approximately 2.722 units higher log wages
+compared to being female. The model explains about 24.54% of the
+variance in log wages, and the overall model is highly significant.
+
+```{r regressions, echo=FALSE}
+modelsummary(list(lm_model,lm_model2),title= 'Wages.')
+```
+
+
+```{r coefplots,fig.cap="Regression Plots.", fig.height=4,fig.width=6,echo=FALSE}
+modelplot(list(lm_model,lm_model2), 
+coef_omit= 'Interc', 
+title= ' Confidence Interval for regression coefficients.') 
+# big section of the project this where you discuss your regression results *very important*  
+```
+
+
+```{r diagnostics, fig.cap="Regression Plots.", fig.height=4, fig.width=6,echo=FALSE}
+autoplot(lm_model)
+```
+
+
+# Other Estimates
+
+Splines
+
+```{r}
+library(splines)
+spline_all <- lm(wage ~ ns(exper, df = 4) + ns(educ, df = 4), data = beauty)
+summary(spline_all)
+
+spline_males <- lm(wage ~ ns(exper, df = 4) + ns(educ, df = 4), data = subset(beauty, sex == 1))
+summary(spline_males)
+
+spline_females <- lm(wage ~ ns(exper, df = 4) + ns(educ, df = 4), data = subset(beauty, sex == 0))
+summary(spline_females)
+```
+
+Overall, these models consistently show that both experience and
+education positively affect wages. Additionally, being male seems to
+correlate with higher wages. The specific impact varies between genders,
+with the explanatory power of the models varying as well. The spline
+models provide a more nuanced view of how wage changes are distributed
+across different levels of experience and education.
+
+Regression Trees
+
+```{r}
+library(rpart)
+tree_model= rpart(wage ~ educ + exper + sex, data = beauty, method = "anova")
+plot(tree_model)
+text(tree_model)
+```
+
+
+#References
