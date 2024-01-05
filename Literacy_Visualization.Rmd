@@ -1,0 +1,129 @@
+---
+title: "Literacy_Visualization"
+output: word_document
+date: "2024-01-05"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = T,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+
+```{r}
+##Loading the required packages
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+##Importing the data set to be used
+Literacy <-read.csv("C:/Users/Baha/Downloads/literacy.csv")
+## Checking for the missing values in the data set.
+colSums(is.na(Literacy))
+head(Literacy)
+```
+
+The aim of this exercise is to see whether Protestantism, the religion, has any effect on literacy in 19th century Germany.
+
+I will plot the ggplot graphs to describe the variables 'protestant' and 'literacy'
+
+## Histogram of the 'protestant' variable
+```{r}
+Literacy |>
+  ggplot(aes(x = protestant)) +
+  geom_histogram(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of the Percentage that is protestant",
+       x = "Percentage Protestant",
+       y = "Frequency") +
+  theme_bw()
+```
+
+
+From the graph, it can be seen that most of the population is 100% protestant.
+
+## Histogram of the 'Literacy' variable
+```{r}
+Literacy |>
+  ggplot(aes(x = literacy)) +
+  geom_histogram(fill = "maroon", color = "black") +
+  labs(title = "Distribution of the Percentage of district population that can read and write",
+       x = "Percentage Literacy",
+       y = "Frequency") +
+  theme_bw()
+```
+
+The plot is asymmetrical, implying that a higher percentage of the population is literate, This plot relates to the plot of the distribution of the percentage protestant which showed that higher percentages of population are protestant, which means that the as the population converts to being protestants, there are higher chances that they will become literate.
+
+## Box plot of the  'literacy' variable by 'polish region' variable
+
+```{r}
+Literacy %>%
+  ggplot(aes(x = as.factor(poland), y = literacy)) +
+  geom_boxplot() +
+  theme_bw(base_size = 10) +
+  labs(
+    x = "Polish region",
+    y = "Percentage literacy",
+    title = "Boxplot of percentage Literacy by Polish region"
+  )
+```
+
+
+The box plot shows that the percentage population that is not of polish region(Germany based) represented by '0' is highly literate, compared to the population that is of Polish region represented by '1'
+
+##Box plot of the 'protestant' variable by 'polish region' variable
+
+```{r}
+Literacy %>%
+  ggplot(aes(x = as.factor(poland), y = protestant)) +
+  geom_boxplot() +
+  theme_bw(base_size = 10) +
+  labs(
+    x = "Polish region",
+    y = "Percentage protestant",
+    title = "Boxplot of percentage protestant by Polish region"
+  )
+```
+
+Again, the percentage protestant is higher in population that are not of polish region '0',and a much lower percentage of protestants in population that are of polish region '1'.
+
+## Scatter plot of the 'literacy' variable by 'protestant' variable
+
+```{r}
+Literacy %>%
+  ggplot(aes(x = protestant, y = literacy, color = as.factor(poland))) +
+  geom_point() +
+  labs(
+    x = "Percentage of protestants",
+    y = "Percentage literacy",
+    title = "Scatter plot of the percentage of Literacy by the percentage of Protestants")
+
+```
+
+From the scatter plot, it can be deduced that the percentage of literacy is high among the population that is not of polish region independent of whether they are protestants or not. Again, the percentage of literacy is high among the population whose region is not polish and whose percentage of protestants is also high.
+
+## Simple linear regression 
+
+```{r}
+attach(Literacy)
+lm_model <-lm(literacy ~ protestant, data = Literacy)
+library(modelsummary)
+library(flextable)
+## Model summary
+modelsummary(lm_model)
+## Model plot
+modelplot(list(lm_model), coef_omit = 'Interc')
+```
+
+The linear regression summary states that the variable 'protestant' is positively related to the variable 'Literacy'. A one unit increase in the percentage of protestants leads to a 0.080 increase in the percentage of literacy. Hence the impact of Percentage of population that is protestant on the percentage of the district population that can be able to read and write is positive.
+
+## Data Summary and corelations among the variables
+
+```{r}
+datasummary_skim(Literacy,title="Data Summary")
+## Correlations among the variables
+datasummary_correlation(Literacy)
+```
+
