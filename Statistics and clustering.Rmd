@@ -1,0 +1,141 @@
+---
+title: "Stats"
+output: html_document
+date: "2024-01-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+library(openxlsx)
+# Specify the path to your Excel file
+excel_file <- "C:/Users/Baha/Downloads/nes8006.xlsx"
+# Read the specified sheet directly into a data frame
+my_data <- read.xlsx(excel_file, sheet = "PtA animal", startRow = 1, colNames = TRUE)
+head(my_data)
+```
+
+```{r}
+##assess the association between “history of mastitis” and “history of metritis”. 
+##use the 'table()' function to create a contingency table
+contingency_table <- table(my_data$Mastitis,my_data$Metritus)
+# Perform Chi-squared test for independence
+chi_squared_result <- chisq.test(contingency_table)
+# Display the results
+print(chi_squared_result)
+```
+```{r}
+##use the 'aov()' function to fit an ANOVA model
+anova_result <- aov(Parity ~ Breed, data = my_data)
+# Display the results
+summary(anova_result)
+```
+
+```{r}
+##use the 'aov()' function with interaction terms
+anova_result <- aov(yield_act ~ Breed * System, data = my_data)
+# Display the results
+summary(anova_result)
+```
+
+```{r}
+library(vegan)
+PrtBPlant <- read.xlsx(excel_file, sheet = "PtB plant", startRow = 1, colNames = TRUE)
+head(PrtBPlant)
+```
+
+```{r}
+library(dplyr)
+# Create a data frame with only the species data
+species_data <- PrtBPlant %>% select(-1)
+# Perform Hellinger transformation on species data
+hellinger_transform <- decostand(species_data, method = "hellinger")
+# PCA with scaling set as TRUE
+pcoa_true <- metaMDS(hellinger_transform, distance = "bray", k = 2, autotransform = TRUE)
+# PCA with scaling set as FALSE
+pcoa_false <- metaMDS(hellinger_transform, distance = "bray", k = 2, autotransform = FALSE)
+# CA with scaling of sites, species, and symmetric
+ca_result <- cca(hellinger_transform)
+ca_result
+# Plot PCoA (scaling = TRUE)
+plot(pcoa_true, main = "PCoA with Scaling = TRUE")
+# Plot PCoA (scaling = FALSE)
+plot(pcoa_false, main = "PCoA with Scaling = FALSE")
+# Plot CA
+plot(ca_result, main = "Correspondence Analysis")
+```
+
+```{r}
+library(cluster)
+# Hierarchical clustering with 3 groups
+clusters_3 <- hclust(dist(hellinger_transform))
+cutree_3 <- cutree(clusters_3, k = 3)
+
+# Hierarchical clustering with 4 groups
+clusters_4 <- hclust(dist(hellinger_transform))
+cutree_4 <- cutree(clusters_4, k = 4)
+# Plot cluster diagram with 3 groups
+plot(clusters_3, main = "Hierarchical Clustering with 3 Groups")
+rect.hclust(clusters_3, k = 3, border = 2:4)
+# Caption for 3 groups
+caption_3 <- "Cluster diagram with 3 groups based on Hellinger-transformed vegetation data."
+# Print caption
+cat(caption_3, "\n\n")
+# Plot cluster diagram with 4 groups
+plot(clusters_4, main = "Hierarchical Clustering with 4 Groups")
+rect.hclust(clusters_4, k = 4, border = 2:5)
+# Caption for 4 groups
+caption_4 <- "Cluster diagram with 4 groups based on Hellinger-transformed vegetation data."
+# Print caption
+cat(caption_4, "\n\n")
+```
+
+```{r}
+# Assign cluster labels to a variable
+labels_3 <- cutree(clusters_3, k = 3)
+labels_4 <- cutree(clusters_4, k = 4)
+# Plot PCA with 3 clusters
+plot(pcoa_true, main = "PCoA with Scaling = TRUE")
+legend("topright", legend = unique(cutree(clusters_3, k = 3)), fill = 1:3, title = "Cluster")
+# Caption for 3 clusters
+caption_3 <- "PCoA with Scaling = TRUE, colored by 3 clusters based on hierarchical clustering."
+# Print caption
+cat(caption_3, "\n\n")
+
+# Plot PCA with 4 clusters
+plot(pcoa_true, main = "PCoA with Scaling = TRUE")
+legend("topright", legend = unique(cutree(clusters_4, k = 4)), fill = 1:4, title = "Cluster")
+
+# Caption for 4 clusters
+caption_4 <- "PCoA with Scaling = TRUE, colored by 4 clusters based on hierarchical clustering."
+
+# Print caption
+cat(caption_4, "\n\n")
+```
+
+```{r}
+PrtChouse <- read.xlsx(excel_file, sheet = "PtC house", startRow = 1, colNames = TRUE)
+head(PrtChouse)
+```
+
+```{r}
+PrtChouse <- PrtChouse |> select(-1)
+# Fit a full model with all potential predictors
+full_model <- lm(price ~ ., data = PrtChouse)
+# Perform backward regression
+backward_model <- step(full_model, direction = "backward")
+# Display the final model
+summary(backward_model)
+```
+```{r}
+# QQ plot
+qqnorm(residuals(backward_model))
+qqline(residuals(backward_model), col = 2)
+# Additional diagnostic plots
+par(mfrow = c(2, 2))
+plot(backward_model)
+```
+
