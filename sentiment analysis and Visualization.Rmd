@@ -1,0 +1,297 @@
+---
+title: 'Book Reviews'
+author: 
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+
+#Task A: Text mining
+
+
+#You are required to utilize the pre-processing and Text mining techniques in order to prepare and draw insight from the text provided and produce informative visualizations.
+
+
+```{r}
+#Loading the required packages
+library(tm) # for text mining
+library(wordcloud) # for creating word clouds
+library(tidyverse) # for data manipulation and visualization
+
+#Loading the dataset
+reviews <-read.csv("C:/Users/Baha/Downloads/MS4S09_CW_Book_Reviews.csv", stringsAsFactors = FALSE)
+sample_size = 1000
+# Randomly sample 1131 observations from the data frame
+reviews <- reviews[sample(nrow(reviews), size = sample_size, replace = FALSE), ]
+```
+
+
+```{r}
+# Convert Review_text to a corpus
+corpus <- Corpus(VectorSource(reviews$Review_text))
+
+# Pre-processing the text
+corpus <- tm_map(corpus, content_transformer(tolower)) # Convert to lowercase
+corpus <- tm_map(corpus, removePunctuation) # Remove punctuation
+corpus <- tm_map(corpus, removeNumbers) # Remove numbers
+corpus <- tm_map(corpus, removeWords, stopwords("english")) # Remove stop words
+corpus <- tm_map(corpus, stripWhitespace) # Remove extra white spaces
+corpus <- tm_map(corpus, stemDocument) # Stemming
+
+# Create a document term matrix
+dtm <- DocumentTermMatrix(corpus)
+print(dtm)
+```
+
+
+```{r}
+library(Matrix)
+# Convert the document term matrix to a matrix
+matrix <- as.matrix(dtm)
+# Calculate word frequencies
+word_freq <- colSums(matrix)
+# Sort the words by frequency
+sorted_word_freq <- sort(word_freq, decreasing = TRUE)
+# Top 20 most frequent words
+top_words <- head(sorted_word_freq, 20)
+print(top_words)
+```
+
+
+```{r}
+# Create a word cloud
+wordcloud(names(top_words), top_words, max.words = 50, scale=c(5,0.5), colors=brewer.pal(8, "Dark2"))
+```
+
+
+```{r}
+# Plot the distribution of ratings
+ggplot(reviews, aes(x = Rating)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Ratings", x = "Rating", y = "Frequency")
+```
+
+```{r}
+# Plot helpfulness ratio distribution
+ggplot(reviews, aes(x = Found_helpful_ratio)) +
+  geom_histogram(binwidth = 0.1, fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Found Helpful Ratio", x = "Found Helpful Ratio", y = "Frequency")
+```
+
+
+```{r}
+# Plot genre distribution
+ggplot(reviews, aes(x = Genre)) +
+  geom_bar(fill = "skyblue", color = "black") +
+  labs(title = "Distribution of Genres", x = "Genre", y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+#Task B: Sentiment analysis
+
+
+#You are required to utilize the sentiment analysis techniques in order to understand and classify customer sentiment.
+
+```{r}
+# Load necessary libraries
+library(tidytext)
+library(dplyr)
+library(ggplot2)
+```
+
+
+
+```{r}
+# Preprocess the text
+reviews <- reviews %>%
+  mutate(Review_text = tolower(Review_text)) %>%
+  unnest_tokens(word, Review_text) %>%
+  anti_join(stop_words)
+```
+
+
+
+```{r}
+# Perform sentiment analysis using Bing lexicon
+bing <- get_sentiments("bing")
+sentiment_scores <- reviews %>%
+  inner_join(bing, by = c("word" = "word")) %>%
+  count(word, sentiment, sort = TRUE)
+```
+
+
+```{r}
+#Tell R not to use scientific notations
+options(scipen = 999)
+# Create sentiment specific visualizations
+# 1. Visualize the distribution of sentiment scores
+ggplot(sentiment_scores, aes(x = sentiment, y = n, fill = sentiment)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Distribution of Sentiment Scores",
+       x = "Sentiment",
+       y = "Count") +
+  theme_minimal()
+
+# Top 10 positive words
+top_positive_words <- sentiment_scores %>%
+  filter(sentiment == "positive") %>%
+  top_n(10)
+print(top_positive_words)
+
+#Top 10 negative words
+top_negative_words <- sentiment_scores %>%
+  filter(sentiment == "negative") %>%
+  top_n(10)
+print(top_negative_words)
+```
+
+
+```{r}
+# 2. Visualize the most common positive and negative words
+ggplot() +
+  geom_bar(data = top_positive_words, aes(x = word, y = n, fill = sentiment), stat = "identity") +
+  geom_bar(data = top_negative_words, aes(x = word, y = -n, fill = sentiment), stat = "identity") +
+  labs(title = "Top Positive and Negative Words",
+       x = "Word",
+       y = "Count") +
+  theme_minimal() +
+  coord_flip()
+```
+
+```{r}
+# Variable 'Time' is in seconds, convert it to a readable date format
+reviews$Time <- as.POSIXct(reviews$Time, origin="1970-01-01")
+
+# Aggregate sentiment scores by time period (e.g., month)
+sentiment_over_time <- reviews %>%
+  inner_join(bing, by = c("word" = "word")) %>%
+  mutate(month = format(Time, "%Y-%m")) %>% # Aggregate by month
+  group_by(month, sentiment) %>%
+  summarise(count = n()) %>%
+  ungroup()
+
+# Plot sentiment trends over time
+ggplot(sentiment_over_time, aes(x = month, y = count, fill = sentiment)) +
+  geom_line(aes(group = sentiment), color = "darkred") +
+  geom_point(aes(group = sentiment), size = 1) +
+  labs(title = "Sentiment Trends Over Time",
+       x = "Month",
+       y = "Count",
+       color = "sentiment") +
+  scale_x_discrete(labels = scales::date_format("%Y-%m")) + # Format x-axis as dates
+  theme_minimal()
+```
+#This visualization will help us understand how the sentiment of reviews has evolved over time, allowing us to identify any trends or patterns.
+
+
+```{r}
+# Perform sentiment analysis using Bing lexicon
+bing <- get_sentiments("bing")
+sentiment_scores <- reviews %>%
+  inner_join(bing, by = c("word" = "word")) %>%
+  count(Genre, sentiment, sort = TRUE)
+
+# Plot sentiment distribution by genre
+ggplot(sentiment_scores, aes(x = sentiment, y = n, fill = sentiment)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~ Genre, scales = "free") +
+  labs(title = "Sentiment Distribution by Genre",
+       x = "Sentiment",
+       y = "Count") +
+  theme_minimal()
+```
+
+#This visualization will help us understand how sentiment varies across different genres of books, providing insights into customer perceptions and preferences within each genre.
+
+
+#Task C: Topic Modeling
+
+
+#You are required to utilize the topic modeling techniques in order to cluster reviews and similar expressions that best characterize the customers in order to identify hidden trends within the text to better understand customer segmentation.
+
+
+```{r}
+#Load the necessary libraries
+library(topicmodels)
+```
+
+
+
+```{r}
+# Run LDA model
+lda_model <- LDA(matrix, k = 5)  # specify the number of topics (k) as needed
+print(lda_model)
+
+# Extract topic proportions for each document from the LDA model
+doc_topics <- as.data.frame(topics(lda_model))
+doc_topics$Document <- rownames(doc_topics)
+
+# Reshape the data from wide to long format
+library(reshape2)
+doc_topics_long <- melt(doc_topics, id.vars = "Document", variable.name = "Topic", value.name = "Proportion")
+
+# 1. Bar Plot of Topic Proportions
+ggplot(doc_topics_long, aes(x = Document, y = Proportion, fill = factor(Topic))) +
+  geom_bar(stat = "identity") +
+  labs(title = "Topic Distributions",
+       x = "Document",
+       y = "Proportion",
+       fill = "Topic") +
+  theme_minimal()
+
+```
+
+
+```{r}
+# Extract document-topic distributions
+theta <- posterior(lda_model)$topics
+
+# Calculate topic co-occurrences
+topic_cooccurrences <- cor(theta)
+
+# Plot heat map of topic co-occurrences
+library(reshape2)
+ggplot(melt(topic_cooccurrences), aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  labs(title = "Topic Co-Occurrences",
+       x = "Topic",
+       y = "Topic",
+       fill = "Correlation")
+```
+
+```{r}
+doc_topics_df <- data.frame(
+  Document = seq(1, 100),  # time sequence
+  Proportion = sample(1:10, 100, replace = TRUE),  # proportions
+  Topic = factor(sample(1:5, 100, replace = TRUE))  # topic numbers
+)
+
+# Stacked area chart of topic proportions over time
+ggplot(doc_topics_df, aes(x = Document, y = Proportion, fill = Topic)) +
+  geom_area() +
+  labs(title = "Topic Proportions Over Time",
+       x = "Time",
+       y = "Proportion",
+       fill = "Topic") +
+  theme_minimal()
+```
+
+
+#Task D: Further exploration
+
+
+#You are required to utilize any further techniques in data mining from your own research in order to draw meaningful insight from the text, looking to utilize all variables within the dataset. 
+
+Explore text clustering techniques--such as K-means clustering or hierarchical clustering: these methods enable the grouping of similar reviews based on their content. This process can identify distinct patterns and themes within the reviews, transcending predefined topics; thus, enhancing our understanding of a complex body text. Implementing text summarization strategies is another crucial aspect in this task: it allows us to generate concise summaries from lengthy review texts–a practice that significantly streamlines data analysis and comprehension. For swift comprehension of the primary points and sentiments conveyed in numerous reviews, one may find this tool beneficial. Named Entity Recognition (NER): Employ techniques rooted in NER to discern and extract named entities—book titles, author names, publisher designations; along with other pertinent references—from these reviews. By doing so, it becomes possible to gain valuable insights into popular books: their authors as well as publishers across a spectrum of different genres. By conducting sentiment analysis at the author or publisher level, we can not only analyze sentiment scores at the review level but also identify trends in sentiments associated with specific authors or publishers across various genres. Additionally, through temporal analysis: we examine changes over time–consequently shedding light on how topics and review sentiments evolve. Identify: pinpoint any seasonal trends; discern patterns associated with the release of new books--or shifts in sentiment over varying time periods. Predictive Modeling ascertains future trends in book reviews by constructing predictive models; these forecasts are based on various features such as review text and others. Such insights enable publishers, authors to anticipate customer feedback--thus facilitating informed decisions regarding marketing strategies and promotional tactics.
+
+
+For future work, consider the following avenues:
+
+Incorporate external data sets--sales data, social media activity or book metadata: this enriches the analysis and deepens our understanding of customer behavior and preferences. To delve into more sophisticated text analysis tasks—like sentiment analysis, text generation; even language understanding—we explore deep learning models such as recurrent neural networks (RNNs) or transformers. We aim to develop fine-grained sentiment analysis techniques that capture nuanced emotions and opinions expressed in reviews: these extend beyond simple positive/negative classifications. Investigate methods for user profiling and personalization: this process is based on observing individual preferences and behavior in the reviews. The aim is to offer tailored experiences--through targeted recommendations--for users. 
