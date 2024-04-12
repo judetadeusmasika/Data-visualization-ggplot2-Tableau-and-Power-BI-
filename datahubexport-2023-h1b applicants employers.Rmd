@@ -1,0 +1,384 @@
+---
+title: "datahubexport-2023"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+date: "2024-04-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+## R Markdown
+
+```{r}
+#Set the working directory
+setwd("C:/Users/Baha/Downloads")
+#Load the required libraries
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+#Load the dataset to be used for analysis
+Export2023<-read_xlsx("datahubexport-2023.xlsx")
+```
+
+
+
+```{r}
+#Display the first few observations 
+head(Export2023)
+objects(Export2023)
+#Data cleansing processes
+#############Data structure#######################
+str(Export2023)
+##########Check for the missing values#########
+colSums(is.na(Export2023)) # some of the variables have missing values in the datasets
+```
+
+
+```{r}
+#Remove the missing values
+Export2023 <-Export2023 %>% 
+  na.omit(Export2023)
+colSums(is.na(Export2023))
+```
+
+#The dimension of the dataset is changed, meaning that the missing values have been taken care of.
+
+```{r}
+#standardize text
+# Standardize text fields (e.g., convert to lowercase)
+Export2023$Employer <- tolower(Export2023$Employer)
+str(Export2023$Employer)
+```
+
+
+```{r}
+#Remove duplicate rows in the dataset to ensure that each record is unique
+Export2023 <-distinct(Export2023)
+dim(Export2023)
+```
+
+#The dimension of the data has changed from 30759 rows to 30726 rows, meaning that the duplicate rows have been removed.
+
+
+```{r}
+#Convert data types of variables such as "initial denial" and "initial approval" to numeric
+# Convert columns to numeric
+Export2023$`Initial Approval` <- as.numeric(Export2023$`Initial Approval`)
+Export2023$`Initial Denial` <- as.numeric(Export2023$`Initial Denial`)
+Export2023$`Continuing Approval` <- as.numeric(Export2023$`Continuing Approval`)
+Export2023$`Continuing Denial` <- as.numeric(Export2023$`Continuing Denial`)
+```
+
+
+```{r}
+#check for outliers and anomalicies in the numeric columns
+# Summary statistics to check for outliers
+summary(Export2023[, c("Initial Approval", "Initial Denial", "Continuing Approval", "Continuing Denial")])
+```
+
+
+#Data visualization
+
+#Bar charts
+
+```{r}
+library(tm)
+library(wordcloud)
+sample_size <-200
+# Randomly sample 1131 observations from the data frame
+Export2023 <- Export2023[sample(nrow(Export2023), size = sample_size,
+                             replace = FALSE), ]
+# Convert employer_text to a corpus
+corpus <- Corpus(VectorSource(Export2023$Employer))
+
+# Pre-processing the text
+corpus <- tm_map(corpus, content_transformer(tolower)) # Convert to lowercase
+corpus <- tm_map(corpus, removePunctuation) # Remove punctuation
+corpus <- tm_map(corpus, removeNumbers) # Remove numbers
+corpus <- tm_map(corpus, removeWords, stopwords("english")) # Remove stop words
+corpus <- tm_map(corpus, stripWhitespace) # Remove extra white spaces
+corpus <- tm_map(corpus, stemDocument) # Stemming
+```
+
+
+```{r}
+# 1) Bar chart for Initial Approval by State
+ggplot(Export2023, aes(x = State, fill = factor(`Initial Approval`))) +
+  geom_bar() +
+  labs(title = "Initial Approval by State",
+       x = "State",
+       y = "Number of Approvals",
+       fill = "Number of Approvals") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+#Question: Which states have the highest number of initial approvals?
+
+#Answer: The bar chart for initial approval by state shows that CA, NY and TX have more initial approvals than other states.
+
+
+```{r}
+# 2) Bar chart for Initial Denial by State
+ggplot(Export2023, aes(x = State, fill = factor(`Initial Denial`))) +
+  geom_bar() +
+  labs(title = "Initial Denial by State",
+       x = "State",
+       y = "Number of Denials",
+       fill = "Number of Denials") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+#Question: Which states have the highest number of initial denials?
+
+#Answer: The bar chart for initial denial by state shows that CA has the most number of initial denials. It is followed by NY and then TX.
+
+
+```{r}
+# 3) Bar chart for Continuing Approval by State
+ggplot(Export2023, aes(x = State, fill = factor(`Continuing Approval`))) +
+  geom_bar() +
+  labs(title = "Continuing Approval by State",
+       x = "State",
+       y = "Number of Approvals",
+       fill = "Number of Approvals") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+#Question: Which states have the highest number of continuing approvals?
+
+#Answer: From the bar chart for states continuing approval, it is clear that CA (California) has the most continuing approvals. NY (New York) and TX (Texas) come after.
+
+
+```{r}
+# 4) Bar chart for Continuing Denial by State
+ggplot(Export2023, aes(x = State, fill = factor(`Continuing Denial`))) +
+  geom_bar() +
+  labs(title = "Continuing Denial by State",
+       x = "State",
+       y = "Number of Denials",
+       fill = "Number of Denials") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#Question: Which states have the highest number of continuing denials?
+
+#The bar chart for continuing denial by state shows that CA (California) has the most continuing denials, NY (New York) is next in line, and then TX (Texas).
+
+```{r}
+# 5) Bar chart for Initial Approval by NAICS CODE
+ggplot(Export2023, aes(x = NAICS, fill = factor(`Initial Approval`))) +
+  geom_bar() +
+  labs(title = "Initial Approval by NAICS CODE",
+       x = "NAICS CODE",
+       y = "Number of Approvals",
+       fill = "Number of Approvals") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#Question: Which NAICS codes have the highest number of initial approvals?
+
+#Answer: The bar chart, which is about initial approval by NAICS, shows that code 54 in NAICS has the most number of initial approvals. Followed by code 51 and then code 45.
+
+
+```{r}
+# 6) Bar chart for Initial Denial by NAICS CODE
+ggplot(Export2023, aes(x = NAICS, fill = factor(`Initial Denial`))) +
+  geom_bar() +
+  labs(title = "Initial Denial by NAICS CODE",
+       x = "NAICS CODE",
+       y = "Number of Denials",
+       fill = "Number of Denials") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#Question: Which NAICS codes have the highest number of initial denials?
+
+#The bar chart for initial denial by NAICS signifies that NAICS code 54 has the greatest number of first-time denials, then it is followed by NAICS code 51 and 45.
+
+```{r}
+# 7) Bar chart for Continuing denial by NAICS CODE
+ggplot(Export2023, aes(x = NAICS, fill = factor(`Continuing Denial`))) +
+  geom_bar() +
+  labs(title = "Continuing Denial by NAICS CODE",
+       x = "NAICS CODE",
+       y = "Number of Denials",
+       fill = "Number of Denials") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#Question: Which NAICS codes have the highest number of continuing denials?
+
+#Answer: The bar graph of continuing denial by NAICS indicates that the NAICS code 54 has the largest amount of continuing denials, with code 51 and 45 coming after it.
+
+```{r}
+# 8) Bar chart for Continuing approval by NAICS CODE
+ggplot(Export2023, aes(x = NAICS, fill = factor(`Continuing Approval`))) +
+  geom_bar() +
+  labs(title = "Continuing Approval by NAICS CODE",
+       x = "NAICS CODE",
+       y = "Number of Approvals",
+       fill = "Number of Approvals") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+#Question: Which NAICS codes have the highest number of continuing approvals?
+
+#Answer: The bar chart for continuing approval by NAICS shows that NAICS code 54 has the top number of continuing approvals, then comes NAICS code 51 and lastly 45.
+
+```{r}
+# Bar chart for h1b applicant Employer by State
+ggplot(Export2023, aes(x = State, fill = Employer)) +
+  geom_bar() +
+  labs(title = "Employer by State",
+       x = "State",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")  # Removing legend for clarity
+```
+#Question: Which state has the highest number of employers
+
+#Answer: From the bar chart above, CA, NY and TX have the highest number of employers.
+
+```{r}
+# Bar chart for h1b applicant Employer by ZIP Code
+ggplot(Export2023, aes(x = ZIP, fill = Employer)) +
+  geom_bar() +
+  labs(title = "Employer by ZIP Code",
+       x = "ZIP Code",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")  # Removing legend for clarity
+```
+
+```{r}
+# Bar chart for h1b applicant Employer by City
+ggplot(Export2023, aes(x = City, fill = Employer)) +
+  geom_bar() +
+  labs(title = "Employer by City",
+       x = "City",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none") +
+  coord_flip()# Removing legend for clarity 
+```
+
+#Question: Which cities have the highest number of unique employers sponsoring H1B applicants?
+
+#Answer: The bar chart displays the H1B applicant employers by city, indicating that New York City is the leader in having unique employers sponsor H1B applicants. Next after this are San Francisco and Chicago, as shown by their bars. It means these locations are popular spots for H1B employment sponsorship.
+
+```{r}
+# Bar chart for h1b applicant Employer by NAICS CODE
+ggplot(Export2023, aes(x = NAICS, fill = Employer)) +
+  geom_bar() +
+  labs(title = "Employer by NAICS CODE",
+       x = "NAICS CODE",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")  # Removing legend for clarity
+```
+
+#Question: Among the unique employers sponsoring H1B applicants, in what kinds of industries as per NAICS codes are they mostly engaged?
+
+#The bar chart for H1B applicant employers by NAICS code shows that NAICS code 54, which corresponds to Professional, Scientific, and Technical Services has the largest number of unique employers sponsoring H1B applicants. This is followed by NAICS code 51 (Information) and NAICS code 62 (Health Care and Social Assistance). It implies that people in these industries are more probable to be sponsored for H1B visas.
+
+
+
+#PLOTS THAT SHOW THE TOP TEN h1b applicant employers by state, by zip code, by city and by naics code
+
+```{r}
+Top10Employer <- head(Export2023, n=10)
+dim(Top10Employer)
+```
+
+```{r}
+# Bar chart for h1b applicant Employer by State
+ggplot(Top10Employer, aes(x = State, fill = Employer)) +
+  geom_bar() +
+  labs(title = "h1b applicant employer by State",
+       x = "State",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")  # Removing legend for clarity
+```
+
+#Question: Which states have the highest number of unique employers sponsoring H1B applicants?
+
+#Answer: The bar chart of H1B applicant employers by state displays that California (CA) possesses the greatest count of unique employers providing sponsorship for H1B applicants, New York (NY) follows after it and then comes Texas (TX). This suggests these states serve as main spots where people get their H1B visa sponsored, potentially because there is more requirement for skillful labor in these areas.
+
+
+```{r}
+# Bar chart for h1b applicant Employer by ZIP Code
+ggplot(Top10Employer, aes(x = ZIP, fill = Employer)) +
+  geom_bar() +
+  labs(title = "h1b applicant Employer by ZIP Code",
+       x = "ZIP Code",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")  # Removing legend for clarity
+```
+
+
+```{r}
+# Bar chart for h1b applicant Employer by City
+ggplot(Top10Employer, aes(x = City, fill = Employer)) +
+  geom_bar() +
+  labs(title = "h1b applicant Employer by City",
+       x = "City",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none") +
+  coord_flip()# Removing legend for clarity 
+```
+
+
+```{r}
+# Bar chart for h1b applicant Employer by NAICS CODE
+ggplot(Top10Employer, aes(x = NAICS, fill = Employer)) +
+  geom_bar() +
+  labs(title = "h1b applicant Employer by NAICS CODE",
+       x = "NAICS CODE",
+       y = "Number of Employers",
+       fill = "Employer") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")  # Removing legend for clarity
+```
+
+
+#Question: In which industries, as per NAICS codes, do we find the largest number of unique employers who sponsor H1B applicants?
+
+#Answer: For H1B applicant employers by NAICS code, the bar chart offers understanding about which industries have highest number of H1B visa sponsors. Even though specific NAICS codes are not seen because there are many categories, this chart gives hint that some industries sponsor more H1Bs compared to others. To understand better we could reduce focus on top NAICS codes or group them into bigger industry categories for easier understanding.
+
+
+#Other plots
+
+```{r}
+# Boxplot of Initial Approval by State
+ggplot(Export2023, aes(x = State, y = `Initial Approval`, fill = State)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Initial Approval by State",
+       x = "State",
+       y = "Initial Approval",
+       fill = "State") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+#Question: How does the distribution of initial approvals vary across states?
+
+#Answer: The boxplot of initial approval by state displays differences in how initial approvals are spread across different states. Certain states have a higher middle value for initial approvals, which suggests that approval rates differ between them.
